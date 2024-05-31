@@ -1,0 +1,16 @@
+django
+djangorestframework
+environs
+psycopg
+psycopg2
+requests
+bs4
+cachetools
+transformers
+torch
+huggingface_hub
+spacy
+line-bot-sdk
+langchain
+langchain-openai
+langchain_community

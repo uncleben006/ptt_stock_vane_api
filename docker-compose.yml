@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+
+  postgres:
+    container_name: ptt_stock_vane_postgres
+    image: postgres:16
+    ports:
+      - "5433:5432"
+    env_file:
+      - .env
+    volumes:
+      - ./postgresql:/var/lib/postgresql/data
+    networks:
+      - ptt_stock_vane_network
+    restart: always
+
+  ptt_stock_vane_api:
+    build: .
+    image: ptt_stock_vane_api
+    container_name: ptt_stock_vane_api
+    depends_on:
+      - postgres
+    command: bash -c "sleep 3 && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./config:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment: # 容器內部環境要連線容器內網
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    networks:
+      - ptt_stock_vane_network
+    restart: always
+
+networks:
+  ptt_stock_vane_network:
+    driver: bridge
