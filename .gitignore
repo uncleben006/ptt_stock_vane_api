@@ -1,5 +1,6 @@
 .env
-venv
+.venv
+poetry.lock
 __pycache__
 postgresql
 .DS_Store

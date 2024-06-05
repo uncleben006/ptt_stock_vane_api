@@ -1,3 +1,11 @@
+## Environment
+使用 poetry 安裝套件和管理虛擬環境
+
+```
+poetry install
+poetry shell
+```
+
 ## Dataset
 1. 將所有股票版資料爬取整理好，每日更新最新50頁的所有文章，確保資料庫內資料與時俱進
 
