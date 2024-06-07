@@ -15,4 +15,11 @@ for i, piece in enumerate(pieces):
     print(f"Piece {i+1}:")
     print(piece.head())
     print()
-    piece.to_csv(f'data/piece_{i+1}.csv', index=False, quoting=csv.QUOTE_NONNUMERIC, quotechar='"', encoding='utf-8')
+    piece.to_csv(
+        f'data/piece_{i+1}.csv', 
+        index=False, 
+        quoting=csv.QUOTE_NONNUMERIC, 
+        quotechar='"', 
+        encoding='utf-8',
+        header=['留言'])
+    )
