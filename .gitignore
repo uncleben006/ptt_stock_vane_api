@@ -3,5 +3,6 @@
 poetry.lock
 __pycache__
 postgresql
+qdrant_storage
 .DS_Store
 data/*
