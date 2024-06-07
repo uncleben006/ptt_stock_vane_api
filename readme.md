@@ -90,3 +90,9 @@ python -m spacy download zh_core_web_trf
 ```
 ngrok http http://localhost:8000
 ```
+
+## 資料流
+先在 vector db 找出最像的股票代碼區塊
+也用 vector db 找出類似的留言
+組合好 prompt 丟入 model 詢問答案
+答案就是留言提到的公司以及市場情緒
