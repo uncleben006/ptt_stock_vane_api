@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from ptt_stock_crawler.services.update_ptt_stock_paragraphs import fetch_and_update_stock_paragraphs
+from ptt_stock_crawler.services.update_stock_paragraphs import fetch_and_update_stock_paragraphs
 
 class Command(BaseCommand):
     help = 'Fetches stock paragraphs from PTT stock forum and inserts them into the database'

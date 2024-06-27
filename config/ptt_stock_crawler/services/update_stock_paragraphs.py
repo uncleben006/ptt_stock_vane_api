@@ -4,7 +4,6 @@ import json
 import requests
 import hashlib
 import spacy
-# from ptt_stock_crawler.utilities.ptt_stock import get_post_links
 from bs4 import BeautifulSoup
 from datetime import datetime
 from cachetools import LRUCache
