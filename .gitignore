@@ -6,3 +6,4 @@ postgresql
 qdrant_storage
 .DS_Store
 data/*
+prompt-legacy
