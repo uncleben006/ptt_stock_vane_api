@@ -26,6 +26,8 @@ pandas = "^2.2.2"
 qdrant-client = "^1.9.1"
 langchain-qdrant = "^0.1.0"
 jupyter = "^1.0.0"
+textdistance = "^4.6.2"
+beautifulsoup4 = "^4.12.3"
 
 
 [build-system]
