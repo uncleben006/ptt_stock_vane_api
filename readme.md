@@ -114,3 +114,5 @@ ngrok http http://localhost:8000
 系統開始查詢，會需要幾秒時間
 用戶點選查看結果
 系統將結果回傳出來
+
+[AI Data Analysis Journey](./AI_data_analysis_journey.md)
