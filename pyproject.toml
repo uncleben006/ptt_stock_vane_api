@@ -28,6 +28,13 @@ langchain-qdrant = "^0.1.0"
 jupyter = "^1.0.0"
 textdistance = "^4.6.2"
 beautifulsoup4 = "^4.12.3"
+selenium = "^4.22.0"
+undetected-chromedriver = "^3.5.5"
+django-extensions = "^3.2.3"
+ipython = "^8.26.0"
+notebook = "^7.2.1"
+pyautogui = "^0.9.54"
+pywinctl = "^0.4"
 
 
 [build-system]
