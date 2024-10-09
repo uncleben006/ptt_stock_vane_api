@@ -48,7 +48,12 @@ class PttStockCrawler():
                 print(result["paragraph_link"], result["status"], end=" ")
                 paragraph = PttStockParagraphs.objects.filter(paragraph_link=result["paragraph_link"]).first()
 
-                # 若文章存在於資料庫中，但抓下的文章狀態為 502，則新增
+                # 若資料庫中存在該文章，且已經分析過，則跳過避免覆蓋 GPT 分析結果
+                if paragraph and paragraph.done_analyze:
+                    print("DONE_ANALYZE, SKIP")
+                    continue
+
+                # 若資料庫中沒有該文章，且抓下的文章狀態為 502，則新增
                 if not paragraph and result["status"] == "502": 
                     print("INSERT")
                     new_paragraph = PttStockParagraphs(
