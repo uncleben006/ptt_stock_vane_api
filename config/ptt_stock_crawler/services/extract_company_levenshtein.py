@@ -24,7 +24,7 @@ from langchain.output_parsers.json import SimpleJsonOutputParser
 from langchain.globals import set_verbose
 set_verbose(False)
 
-def analyze_stock_comments():
+def extract_company_levenshtein():
     global zh_spacy
     global stock_dict
     global lock
@@ -56,15 +56,14 @@ def analyze_stock_comments():
 def analyze_comment(comment_obj):
     comment_text, match_token = check_token_match_using_stock_dict(comment_obj)
     context = create_context(match_token)
-    if context != "Comment matches nothing.":
-        result = langchain_analyze_comment(comment_text, context)
-        result_comment = comment_obj | result
-        with lock:
-            print(result_comment['comment'])
-            print(context)
-            print(result_comment['sentiment'], result_comment['stock_targets'])
-            print('-------------------')
-        return result_comment
+    result = langchain_analyze_comment(comment_text, context)
+    result_comment = comment_obj | result
+    with lock:
+        print(result_comment['comment'])
+        print(context)
+        print(result_comment['sentiment'], result_comment['stock_targets'])
+        print('-------------------')
+    return result_comment
 
 def check_token_match_using_stock_dict(comment_obj):
     comment_text = comment_obj['comment']
