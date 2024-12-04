@@ -53,16 +53,9 @@ class PttStockCrawler():
                     print("DONE_ANALYZE, SKIP")
                     continue
 
-                # 若資料庫中沒有該文章，且抓下的文章狀態為 502，則新增
+                # 若資料庫中沒有該文章，且抓下的文章狀態為 502，則跳過
                 if not paragraph and result["status"] == "502": 
-                    print("INSERT")
-                    new_paragraph = PttStockParagraphs(
-                        paragraph_link=result["paragraph_link"],
-                        status=result["status"],
-                        md5_hash=result["md5_hash"],
-                        page_url=self.page_url
-                    )
-                    new_paragraph.save()
+                    print("SKIP")
                     continue
 
                 # 若資料庫中沒有該文章則新增
@@ -120,7 +113,7 @@ class PttStockCrawler():
 
     # 爬取股版文章內容
     def scrape(self, url, cache=LRUCache(maxsize=1)):
-        response = requests.get(url)
+        response = requests.get(url, allow_redirects=False)
         if response.status_code != 200:
             return { "paragraph_link": url, "status": "502", "md5_hash": "None" }
 
