@@ -58,6 +58,7 @@ def update_stock_sentiment():
 
     # 每 45 個留言一批傳進 GPT-4o-mini 分析，測試發現傳太多資料模型容易失焦，45 是一個比較穩定的數量
     batch_size = 45
+    break_loop = False
     for record in records:
         paragraph_id = record[0]
         paragraph_link = record[1]
@@ -67,53 +68,67 @@ def update_stock_sentiment():
 
         # 將留言分批傳入 GPT-4o-mini 分析
         for i in range(0, len(comments), batch_size):
-            print(f"分析文章: {paragraph_id} {paragraph_title}")
-            print(f"文章連結: {paragraph_link}")
-            comment_batch = comments[i:i+batch_size]
-            comment_batch_content = {index:comment for index, comment in enumerate(comment_batch)}
-
-            # 若這批已經分析過，則印出後跳過
-            if all("stock_sentiment" in comment and "stock_targets" in comment for comment in comment_batch):
-                comments_analyze_results += comment_batch
-                # print(comment_batch)
-                print(f"總更新留言數: {len(comments_analyze_results)}")
-                print(f"留言已分析，跳過")
-                print("=============================================")
-                continue
-
-            # 使用 Stream SDK 搭配自定義 EventHandler 來創建 Run 並串流返回的結果
-            message_thread = client.beta.threads.create( messages=[{"role": "user", "content": str(comment_batch) }] )
-            with client.beta.threads.runs.stream(
-                thread_id=message_thread.id,
-                assistant_id=ptt_stock_analyzer_asst_id,
-                event_handler=EventHandler(),
-            ) as stream:
-                stream.until_done()
+            if break_loop: break # 中斷外層迴圈
+            retry_count = 0 
+            max_retries = 3  # 最大重試次數
+            while retry_count < max_retries:
                 try:
-                    batch_analyze_results = json.loads(stream.current_message_snapshot.content[0].text.value)
-                except Exception as e:
-                    raise ValueError("分析失敗，請重新檢查。") from e
-                if len(batch_analyze_results) != len(comment_batch_content):
-                    raise ValueError("輸入留言與回傳數量不一致，請檢查。")     
-                
-                print("傳入留言數：",len(comment_batch_content))
-                print("傳出留言數：",len(batch_analyze_results))
-                print("{",batch_analyze_results["0"],"...",batch_analyze_results[list(batch_analyze_results)[-1]],"}", end="\n\n", flush=True)
-                comments_analyze_results += [comment for index, comment in batch_analyze_results.items()]
+                    print(f"分析文章: {paragraph_id} {paragraph_title}")
+                    print(f"文章連結: {paragraph_link}")
+                    comment_batch = comments[i:i+batch_size]
+                    comment_batch_content = {index:comment for index, comment in enumerate(comment_batch)}
 
-            # 為了節省 token，模型回傳的留言結果不會包含一些原始資訊，故需要將這些資訊加回才算一筆完整分析完畢的留言
-            for k, comment in enumerate(comment_batch):
-                comments[i+k]["stock_sentiment"] = comments_analyze_results[i+k]["stock_sentiment"]
-                comments[i+k]["stock_targets"] = comments_analyze_results[i+k]["stock_targets"]
-            
-            # 每次輸出的留言太穩定了，所以只要輸出的數量是正確的，就直接更新資料庫
-            sql = "UPDATE public.ptt_stock_paragraphs SET comments = %s WHERE id = %s"
-            cur.execute(sql, (json.dumps(comments, ensure_ascii=False), paragraph_id))
-            conn.commit()
-            print(f"更新文章: {paragraph_id} {paragraph_title}")
-            print(f"總留言數: {len(comments)}")
-            print(f"總更新留言數: {len(comments_analyze_results)}")
-            print("=============================================")
+                    # 若這批已經分析過，則打印後跳過
+                    if all("stock_sentiment" in comment and "stock_targets" in comment for comment in comment_batch):
+                        comments_analyze_results += comment_batch
+                        print(f"總更新留言數: {len(comments_analyze_results)}")
+                        print(f"留言已分析，跳過")
+                        print("=============================================")
+                        break  # 退出 while 循環，繼續下一批次
+
+                    # 使用 Stream SDK 搭配自定義 EventHandler 來創建 Run 並串流返回的結果
+                    message_thread = client.beta.threads.create( messages=[{"role": "user", "content": str(comment_batch) }] )
+                    with client.beta.threads.runs.stream(
+                        thread_id=message_thread.id,
+                        assistant_id=ptt_stock_analyzer_asst_id,
+                        event_handler=EventHandler(),
+                    ) as stream:
+                        stream.until_done()
+                        try:
+                            batch_analyze_results = json.loads(stream.current_message_snapshot.content[0].text.value)
+                        except Exception as e:
+                            raise ValueError("分析失敗，請重新檢查")
+                        if len(batch_analyze_results) != len(comment_batch_content):
+                            raise ValueError("輸入留言與回傳數量不一致，請檢查")     
+
+                        print("傳入留言數：",len(comment_batch_content))
+                        print("傳出留言數：",len(batch_analyze_results))
+                        print("{",batch_analyze_results["0"],"...",batch_analyze_results[list(batch_analyze_results)[-1]],"}", end="\n\n", flush=True)
+                        comments_analyze_results += [comment for index, comment in batch_analyze_results.items()]
+
+                    # 為了節省 token，模型回傳的留言結果不會包含一些原始資訊，故需要將這些資訊加回才算一筆完整分析完畢的留言
+                    for k, comment in enumerate(comment_batch):
+                        comments[i+k]["stock_sentiment"] = comments_analyze_results[i+k]["stock_sentiment"]
+                        comments[i+k]["stock_targets"] = comments_analyze_results[i+k]["stock_targets"]
+                    
+                    # 每次輸出的留言太不穩定，所以只要輸出的數量是正確的，就直接更新資料庫
+                    sql = "UPDATE public.ptt_stock_paragraphs SET comments = %s WHERE id = %s"
+                    cur.execute(sql, (json.dumps(comments, ensure_ascii=False), paragraph_id))
+                    conn.commit()
+                    print(f"更新文章: {paragraph_id} {paragraph_title}")
+                    print(f"總留言數: {len(comments)}")
+                    print(f"總更新留言數: {len(comments_analyze_results)}")
+                    print("=============================================")
+                    break  # 處理成功，退出 while 循環，繼續下一批次
+                except ValueError as e:
+                    # 處理特定的 ValueError 並重試當前批次
+                    print(f"發生錯誤: {e}，重試 {retry_count+1} 次當前批次...")
+                    retry_count += 1
+                    if retry_count >= max_retries:
+                        print(f"已達到最大重試次數，請確認留言是否正確。")
+                        break_loop = True
+                        break # 已達最大重試次數，退出 while 循環並中斷外層迴圈
+                    continue  # 繼續 while 循環，重試當前批次
 
         # 留言已全數分析，將此篇文章標記為已完成分析
         if len(comments_analyze_results) == len(comments):
