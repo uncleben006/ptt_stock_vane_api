@@ -16,23 +16,8 @@ logging.getLogger().setLevel(logging.ERROR)
 client = OpenAI()
 ptt_stock_analyzer_asst_id = os.getenv("ASSISTANT_ID")
 
-# 建立連線
-conn = psycopg2.connect(
-    user="root",
-    password="root",
-    host="localhost",
-    port="5433",
-    database="postgres"
-)
-
-# Create event handler to customize assistant behavior
+# 建立自訂義事件處理器客製 Assistant 行為
 class EventHandler(AssistantEventHandler):
-
-    @override
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.comments_analyze_results = kwargs.get("comments_analyze_results", [])
-        self.comment_batch_content = kwargs.get("comment_batch_content", 100)
 
     @override
     def on_tool_call_created(self, tool_call):
@@ -51,24 +36,13 @@ class EventHandler(AssistantEventHandler):
             if file_citation := getattr(annotation, "file_citation", None):
                 cited_file = client.files.retrieve(file_citation.file_id)
                 citations.append(f"[{index}] {cited_file.filename}")
-        
-        # print("傳入留言：", self.comment_batch_content)
-        # print("傳出留言：", message_content.value)
-        print("傳入留言：",len(self.comment_batch_content))
-        print("傳出留言：",len(json.loads(message_content.value)))
-        # print("========================================================")
-        
-        if len(json.loads(message_content.value)) != len(self.comment_batch_content):
-            raise ValueError("輸入留言與回傳數量不一致，請檢查。")
-
-        self.comments_analyze_results += [ comment for index, comment in json.loads(message_content.value).items()]
-        # self.comments_analyze_results += json.loads(message_content.value)
-        print(message_content.value, end="\n\n", flush=True)
-        # print("\n".join(citations))
 
 
 def update_stock_sentiment():
 
+    # 建立連線
+    # TODO: 改成 Django ORM
+    conn = psycopg2.connect( user="root", password="root", host="localhost", port="5433", database="postgres" )
     cur = conn.cursor()
     sql = """SELECT * FROM public.ptt_stock_paragraphs
                 WHERE paragraph_published_time BETWEEN '2024-08-01' AND '2024-08-07' 
@@ -86,12 +60,15 @@ def update_stock_sentiment():
     batch_size = 45
     for record in records:
         paragraph_id = record[0]
+        paragraph_link = record[1]
+        paragraph_title = record[3]
         comments = record[8]
         comments_analyze_results = []
-        print(f"開始分析文章:{paragraph_id} {record[3]} {record[1]}")
 
         # 將留言分批傳入 GPT-4o-mini 分析
         for i in range(0, len(comments), batch_size):
+            print(f"分析文章: {paragraph_id} {paragraph_title}")
+            print(f"文章連結: {paragraph_link}")
             comment_batch = comments[i:i+batch_size]
             comment_batch_content = {index:comment for index, comment in enumerate(comment_batch)}
 
@@ -99,7 +76,6 @@ def update_stock_sentiment():
             if all("stock_sentiment" in comment and "stock_targets" in comment for comment in comment_batch):
                 comments_analyze_results += comment_batch
                 # print(comment_batch)
-                print(f"文章: {record[0]} {record[3]}")
                 print(f"總更新留言數: {len(comments_analyze_results)}")
                 print(f"留言已分析，跳過")
                 print("=============================================")
@@ -110,12 +86,20 @@ def update_stock_sentiment():
             with client.beta.threads.runs.stream(
                 thread_id=message_thread.id,
                 assistant_id=ptt_stock_analyzer_asst_id,
-                event_handler=EventHandler(
-                    comments_analyze_results=comments_analyze_results,
-                    comment_batch_content=comment_batch_content
-                ),
+                event_handler=EventHandler(),
             ) as stream:
                 stream.until_done()
+                try:
+                    batch_analyze_results = json.loads(stream.current_message_snapshot.content[0].text.value)
+                except Exception as e:
+                    raise ValueError("分析失敗，請重新檢查。") from e
+                if len(batch_analyze_results) != len(comment_batch_content):
+                    raise ValueError("輸入留言與回傳數量不一致，請檢查。")     
+                
+                print("傳入留言數：",len(comment_batch_content))
+                print("傳出留言數：",len(batch_analyze_results))
+                print("{",batch_analyze_results["0"],"...",batch_analyze_results[list(batch_analyze_results)[-1]],"}", end="\n\n", flush=True)
+                comments_analyze_results += [comment for index, comment in batch_analyze_results.items()]
 
             # 為了節省 token，模型回傳的留言結果不會包含一些原始資訊，故需要將這些資訊加回才算一筆完整分析完畢的留言
             for k, comment in enumerate(comment_batch):
@@ -126,7 +110,7 @@ def update_stock_sentiment():
             sql = "UPDATE public.ptt_stock_paragraphs SET comments = %s WHERE id = %s"
             cur.execute(sql, (json.dumps(comments, ensure_ascii=False), paragraph_id))
             conn.commit()
-            print(f"更新文章: {record[0]} {record[3]}")
+            print(f"更新文章: {paragraph_id} {paragraph_title}")
             print(f"總留言數: {len(comments)}")
             print(f"總更新留言數: {len(comments_analyze_results)}")
             print("=============================================")
@@ -140,3 +124,6 @@ def update_stock_sentiment():
         else:
             raise ValueError("留言未全數分析，請重新檢查。") 
         print("=============================================")
+
+    cur.close()
+    conn.close()
