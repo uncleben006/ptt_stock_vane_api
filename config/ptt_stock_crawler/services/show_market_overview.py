@@ -163,7 +163,7 @@ def show_market_overview():
         database="postgres"
     )
     # 讀取股票代碼與名稱對照表
-    stock_targets_file_path = "/Users/uncleben006/nextgen/code/python/ptt_stock_vane_api/config/data/stock_targets.txt"
+    stock_targets_file_path = "/Users/uncleben006/nextgen/code/python/ptt_stock_vane_api/config/data/stock_targets.csv"
     stock_name_set, stock_no_set, stock_name_to_no, stock_no_to_name = load_stock_targets(stock_targets_file_path)
     # 提取資料庫記錄
     sql_query = """
