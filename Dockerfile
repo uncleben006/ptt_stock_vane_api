@@ -9,6 +9,13 @@ COPY requirements.txt .
 RUN apt-get update
 RUN apt-get install -y libpq-dev
 RUN pip install --upgrade pip
+
+# Install Spacy
+RUN pip install -U pip setuptools wheel
+RUN pip install spacy==3.7.5
+RUN python -m spacy download zh_core_web_trf
+
+# RUN pip install spacy
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code

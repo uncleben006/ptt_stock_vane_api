@@ -9,7 +9,6 @@ cachetools
 transformers
 torch
 huggingface_hub
-spacy
 line-bot-sdk
 langchain
 langchain-openai
